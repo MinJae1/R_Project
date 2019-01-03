@@ -1,0 +1,337 @@
+library(readxl)
+library(dplyr)
+library(plotly)
+library(ggplot2)
+library(scales)
+library(RColorBrewer)
+library(raster)
+library(viridis)
+library(grid)
+library(gridExtra)
+require(randomcoloR)
+
+
+cate <- read_excel("category.xlsx")
+indCS <- read_excel("industry_city_sales_2016.xlsx")
+
+str(indCS)
+
+indCS <- rename(indCS,
+                L1 = "행정구역별",
+                L2 = "산업별",
+                L3 = "사업체수 (개)",
+                L4 = "종사자수 (명)",
+                L5 = "매출액 (백만원)")
+cate <- rename(cate,
+               L2 = L1,
+               L6 = L2)
+str(cate)
+indCS <- merge(indCS, cate, by = 'L2')
+
+
+sealand <- c("#8C66FF", "#6A66FF", "#6684FF", "#66A7FF", 
+            "#66CAFF", "#66ECFF", "#66FFF0", "#66FFCE", 
+            "#66FFAB", "#66FF88",  "#66FF66", "#88FF66", 
+            "#ABFF66", "#CEFF66", "#FFEEA6", "#FFD3A6", 
+            "#FFB8A6", "#FFAAB0", "#FFB5CB", "#FFC0E1")
+
+haxby <- c("#090079", "#280096", "#0009C8", "#0019D4", 
+           "#1A66F0", "#19AFFF", "#32BEFF", "#61E1F0", 
+           "#6AECE1", "#8AECAE", "#CDFFA2", "#DFF68D", 
+           "#F8D768", "#FFBD57", "#F4754B", "#FF5A5A", 
+           "#FF7C7C", "#F6B3AE", "#FFC4C4", "#FFECEC")
+
+lbs <- c("농업, 임업 및 어업" = "농업, 임업\n및\n어업",
+  "전기, 가스, 증기 및 수도사업" = "전기, 가스,\n증기 및\n수도사업",
+  "하수 · 폐기물 처리, 원료재생 및 환경복원업" = "하수 · 폐기물\n처리,\n원료재생\n및\n환경복원업",
+  "도매 및 소매업"  = "도매\n및\n소매업",
+  "금융 및 보험업" = "금융\n및\n보험업" ,
+  "숙박 및 음식점업" = "숙박\n및\n음식점업",
+  "출판, 영상, 방송통신 및 정보서비스업" = "출판, 영상,\n방송통신\n및\n정보서비스업",
+  "부동산업 및 임대업" = "부동산업\n및\n임대업",
+  "전문, 과학 및 기술 서비스업" = "전문, 과학\n및\n기술 서비스업",
+  "사업시설관리 및 사업지원 서비스업"  = "사업시설관리\n및\n사업지원\n서비스업",
+  "공공행정, 국방 및 사회보장 행정" = "공공행정,\n국방 및\n사회보장\n행정",
+  "보건업 및 사회복지 서비스업" = "보건업\n및\n사회복지\n서비스업",
+  "예술, 스포츠 및 여가관련 서비스업" = "예술, 스포츠\n및\n여가관련\n서비스업",
+  "협회 및 단체, 수리  및 기타 개인 서비스업"  = "협회 및\n단체,\n수리 및\n기타\n개인 서비스업",
+  "가구 내 고용활동 및 달리 분류되지 않은 자가소비 생산활동" = "가구 내 고용활동\n및\n달리 분류되지 않은\n자가소비 생산활동")
+
+ggplot(data = indCS[indCS$L2 != "I1" & indCS$L1 != "전  국" ,],
+       aes(x=reorder(L1,-L3),y=L3)) + 
+  geom_col(aes(fill = factor(L6))) + 
+  #geom_text(position = position_stack(vjust = 0.5),size =3,angle = 45) +
+  ggtitle("행정구역단위 산업별 사업체 수(개)(2016)") + scale_fill_manual(values = haxby)
+
+
+col.rc <- as.vector(distinctColorPalette(20))
+
+ggplot(data = indCS[indCS$L2 != "I1" & indCS$L1 == "전  국" ,],aes(x=reorder(L6,-L4),y=L4))+
+  geom_col(aes(fill = factor(L6)),show.legend = F)+
+  geom_text(aes(label = L4),position = position_stack(vjust = 0.5),size =3,angle = 45)+
+  scale_x_discrete(labels = lbs) +
+  ggtitle("전국 산업별 종사자 수(명)(2016)") + scale_fill_manual(values = col.rc)
+
+col.rc <- as.vector(distinctColorPalette(20))
+
+ggplot(data = indCS[indCS$L2 != "I1" & indCS$L1 == "전  국" ,],aes(x=reorder(L6,-L5),y=L5))+
+  geom_col(aes(fill = factor(L6)),show.legend = F)+
+  geom_text(aes(label = L5),position = position_stack(vjust = 0.5),size =3,angle = 45)+
+  scale_x_discrete(labels = lbs) +
+  ggtitle("전국 산업별 매출액 (백만원)(2016)") + scale_fill_manual(values = col.rc)
+
+###################################################################
+
+
+indE <- read_excel("industry_employ_2016.xlsx")
+
+str(indE)
+
+indE <- rename(indE,
+               L1 = "행정구역별",
+               L2 = "산업별",
+               L3 = "취업자 (천명)")
+
+indE$L3 <- ifelse(is.na(indE$L3),0,indE$L3)
+
+unique(indE$L1)
+lab <- c("서  울" = "서\n울", "부  산" = "부\n산", "대  구" = "대\n구", "인  천" = "인\n천",
+        "광  주" = "광\n주", "대  전" = "대\n전", "울  산" = "울\n산", "경  기" = "경\n기", 
+        "강  원" = "강\n원", "충  북" = "충\n북", "충  남" = "충\n남", "전  북" = "전\n북",
+        "전  남" = "전\n남", "경  북" = "경\n북", "경  남" = "경\n남", "제  주" = "제\n주")
+
+col.rc <- as.vector(distinctColorPalette(22))
+
+my_hist <- ggplot(data = indE[indE$L2 != "I1" & indE$L1 != "전  국",],
+       aes(x=reorder(L1,-L3),y = L3))+geom_col(aes(fill = factor(L2))) + 
+  scale_x_discrete(labels = lab) +
+  ggtitle("행정구역단위 산업별 취업자 (천명)(2016)") + scale_fill_manual(values = col.rc)
+
+cat_table <- tableGrob(cate, rows = NULL, theme=ttheme_default(base_size=8))
+
+grid.arrange(my_hist, cat_table, ncol=2)
+
+######################################################################
+
+indET <- read_excel("industry_employ_type_2016.xlsx")
+
+str(indET)
+
+indET <- rename(indET,
+                L1 = "산업별",
+                L2 = "근로형태",
+                L3 = "근로자(천명)")
+
+unique(indET$L1[indET$L1 != "전체"])
+unique(indET$L2)
+
+lbbs <- c("농업, 임업 및 어업" = "농업, 임업\n및\n어업",
+  "사회간접자본 및 기타서비스업" = "사회간접자본\n및\n기타서비스업",
+  "도소매·음식숙박업" =  "도소매·음식\n숙박업",
+  "사업·개인·공공서비스 및 기타" = "사업·개인\n·\n공공서비스\n및\n기타",
+  "전기·운수·통신·금융"  = "전기·운수\n·\n통신·금융" )
+
+ggplot(data = indET[indET$L1 != "전체" & indET$L2 %in%  c("* 정규직","* 비정규직"),],
+       aes(x=reorder(L1,-L3),y = L3))+geom_col(aes(fill = factor(L2))) + 
+  scale_x_discrete(labels = lbbs) +
+  geom_text(aes(label = L3),position = position_stack(vjust = 0.5),size =3,angle = 45) +
+  ggtitle("산업단위 근로형태별 근로자 (천명)(2016)")
+
+testE <- data.frame(R1 = unique(indET$L1[indET$L1 != "전체"]),R2 = (indET$L3[indET$L1 != "전체" & indET$L2 == "* 비정규직"] / indET$L3[indET$L1 != "전체" & indET$L2 == "임금근로자"]))
+
+str(testE)
+
+ggplot(data = testE, aes(x=reorder(R1,-R2),y = R2))+geom_col(aes(fill = factor(R1))) + 
+  scale_x_discrete(labels = lbbs) +
+  geom_text(aes(label = sprintf("%.3f",R2)), 
+            position = position_stack(vjust = 0.5),size =3,angle = 45) +
+  ggtitle("산업단위 비정규직 비율(2016)") + scale_fill_brewer(palette = "Pastel1")
+
+####################################################
+
+##수능
+colEx<- read.csv("2017_college_exam.csv", header=T, as.is=T)
+
+colEx <- rename(colEx,
+                C1 = '영역',
+                C2 = '유형',
+                C3 = '표준점수',
+                C4 = '남자',
+                C5 = '여자')
+
+colEx$C6 <- colEx$C4 + colEx$C5
+
+
+#국어
+
+exam_kor <- colEx %>% filter(C1 == "국어")
+
+exam_kor$C7 <- exam_kor$C3 * exam_kor$C6
+
+exam_take_k <- sum(exam_kor$C6)
+exam_sum_k <- sum(exam_kor$C7)
+exam_mean_k <- exam_sum_k/exam_take_k #수능평균
+
+kor <- ggplot(data = exam_kor, aes(x=C3,y = C6)) + geom_col() + ggtitle("수능 국어(2017)")
+
+###수학
+
+
+exam_math <- colEx %>% filter(C1 == "수학")
+
+exam_math$C7 <- exam_math$C3 * exam_math$C6
+
+#가형 평균
+exam_take_m_a <- sum(exam_math$C6[exam_math$C2 == "수학 가형"])
+exam_sum_m_a <- sum(exam_math$C7[exam_math$C2 == "수학 가형"])
+exam_mean_m_a <- exam_sum_m_a/exam_take_m_a
+
+#나형 평균
+exam_take_m_b <- sum(exam_math$C6[exam_math$C2 == "수학 나형"])
+exam_sum_m_b <- sum(exam_math$C7[exam_math$C2 == "수학 나형"])
+exam_mean_m_b <- exam_sum_m_b/exam_take_m_b
+
+math_a <- ggplot(data = exam_math[exam_math$C2== "수학 가형", ], aes(x=C3,y = C6)) + 
+  geom_col() + ggtitle("수능 수학 가형(2017)")
+
+math_b <- ggplot(data = exam_math[exam_math$C2== "수학 나형", ], aes(x=C3,y = C6)) + 
+  geom_col() + ggtitle("수능 수학 나형(2017)")
+
+
+##영어
+
+exam_eng <- colEx %>% filter(C1 == "영어")
+
+exam_eng$C7 <- exam_eng$C3 * exam_eng$C6
+
+exam_take_e <- sum(exam_eng$C6)
+exam_sum_e <- sum(exam_eng$C7)
+exam_mean_e <- exam_sum_e/exam_take_e
+
+eng <- ggplot(data = exam_eng, aes(x=C3,y = C6)) + 
+  geom_col() +
+  ggtitle("수능 영어(2017)")
+
+##9월 모의고사
+colMkEx<- read.csv("2017_college_mock_exam.csv", header=T, as.is=T)
+
+colMkEx <- rename(colMkEx,
+                C1 = '영역',
+                C2 = '유형',
+                C3 = '표준점수',
+                C4 = '남자',
+                C5 = '여자')
+
+colMkEx$C6 <- colMkEx$C4 + colMkEx$C5
+
+
+#국어
+
+mock_exam_kor <- colMkEx %>% filter(C1 == "국어")
+
+mock_exam_kor$C7 <- mock_exam_kor$C3 * mock_exam_kor$C6
+
+mock_exam_take_k <- sum(mock_exam_kor$C6)
+mock_exam_sum_k <- sum(mock_exam_kor$C7)
+mock_exam_mean_k <- mock_exam_sum_k/mock_exam_take_k #모의고사 평균
+
+exam_mean_k - mock_exam_mean_k
+
+mock_kor <- ggplot(data = mock_exam_kor, aes(x=C3,y = C6)) + geom_col() +
+  ggtitle("9월 모의고사 국어(2017)")
+
+###수학
+
+
+mock_exam_math <- colMkEx %>% filter(C1 == "수학")
+
+mock_exam_math$C7 <- mock_exam_math$C3 * mock_exam_math$C6
+
+
+#가형 평균
+mock_exam_take_m_a <- sum(mock_exam_math$C6[mock_exam_math$C2 == "수학 가형"])
+mock_exam_sum_m_a <- sum(mock_exam_math$C7[mock_exam_math$C2 == "수학 가형"])
+mock_exam_mean_m_a <- mock_exam_sum_m_a/mock_exam_take_m_a
+
+exam_mean_m_a - mock_exam_mean_m_a
+
+#나형 평균
+mock_exam_take_m_b <- sum(mock_exam_math$C6[mock_exam_math$C2 == "수학 나형"])
+mock_exam_sum_m_b <- sum(mock_exam_math$C7[mock_exam_math$C2 == "수학 나형"])
+mock_exam_mean_m_b <- mock_exam_sum_m_b/mock_exam_take_m_b
+
+exam_mean_m_b - mock_exam_mean_m_b
+
+mock_math_a <- ggplot(data = mock_exam_math[mock_exam_math$C2== "수학 가형", ], 
+                      aes(x=C3,y = C6)) +  geom_col() +
+  ggtitle("9월 모의고사 수학 가형(2017)")
+
+mock_math_b <- ggplot(data = mock_exam_math[mock_exam_math$C2== "수학 나형", ], 
+                      aes(x=C3,y = C6)) + geom_col() +
+ggtitle("9월 모의고사 수학 나형(2017)")
+
+##영어
+
+mock_exam_eng <- colMkEx %>% filter(C1 == "영어")
+
+mock_exam_eng$C7 <- mock_exam_eng$C3 * mock_exam_eng$C6
+
+mock_exam_take_e <- sum(mock_exam_eng$C6)
+mock_exam_sum_e <- sum(mock_exam_eng$C7)
+mock_exam_mean_e <- mock_exam_sum_e/mock_exam_take_e
+
+exam_mean_e - mock_exam_mean_e
+
+mock_eng <- ggplot(data = mock_exam_eng, aes(x=C3,y = C6)) + 
+  geom_col() + 
+  ggtitle("9월 모의고사 영어(2017)")
+
+
+grid.arrange(eng, mock_eng, ncol=2)
+
+
+grid.arrange(math_a, mock_math_a, ncol=2)
+
+grid.arrange(math_b, mock_math_b, ncol=2)
+
+
+grid.arrange(kor, mock_kor, ncol=2)
+
+########################################################################
+
+korea <- shapefile('TL_SCCO_CTPRVN.shp')
+korea<- spTransform(korea, CRS("+proj=longlat"))
+korea_map<-fortify(korea)
+
+kor_pop <- read_excel("population.xlsx")
+
+str(kor_pop)
+
+kor_pop <- rename(kor_pop,
+                  R1 = "행정구역별(읍면동)",
+                  R2 = "남자 (명)",
+                  R3 = "여자 (명)")
+
+kor_pop$R4 <- kor_pop$R2 + kor_pop$R3
+
+indCI <- read_excel("industry_city_2016_id.xlsx")
+
+str(indCI)
+
+indCI <- rename(indCI,
+                  L1 = "행정구역별",
+                  L2 = "산업별",
+                  L3 = "사업체수 (개)")
+
+merge_result<-merge(korea_map, kor_pop, by="id")
+
+
+ggplot() + 
+  geom_polygon(data=merge_result, aes(x=long, y=lat, group=group, fill=R4),color='grey60') + 
+  labs(fill="인구수") + 
+  geom_count(data=indCI, aes(x=long, y=lat, size=L3, alpha = 0.3, col = id),
+             show.legend = F, stroke = 4) +
+  geom_text(data=indCI, aes(x=long, y=lat, label = sprintf("%d",L3)), size =3.5) +
+  scale_fill_gradient(low="darkolivegreen1", high="#FF793F") +
+  ggtitle("지역별 인구수와 사업체수(2016)")
+
